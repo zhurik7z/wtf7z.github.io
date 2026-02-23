@@ -1,0 +1,85 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>wtf7z | Мой сайт</title>
+  <meta name="description" content="Личный сайт wtf7z: проекты, музыка, профиль и комментарии." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-shape bg-shape-1"></div>
+  <div class="bg-shape bg-shape-2"></div>
+
+  <header class="topbar container">
+    <div class="brand">wtf7z</div>
+    <button id="notifyBtn" class="notify-btn" aria-label="Уведомления">
+      <span class="notify-dot" id="notifyDot"></span>
+      🔔
+    </button>
+  </header>
+
+  <main class="container layout">
+    <section class="hero card">
+      <p class="badge">Личный сайт</p>
+      <h1>Привет, ты попал на мой сайт</h1>
+      <p class="hero-text">Прочитай информацию:</p>
+      <div class="projects">
+        <a class="project" href="https://t.me/whatsappnodebot" target="_blank" rel="noopener noreferrer">
+          <h3>Whatsapp bot</h3>
+          <p>https://t.me/whatsappnodebot</p>
+        </a>
+        <a class="project" href="https://t.me/nursultansn0sbot" target="_blank" rel="noopener noreferrer">
+          <h3>Сносер аккаунтов для TikTok (публичный)</h3>
+          <p>https://t.me/nursultansn0sbot</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="player card">
+      <h2>Media Player</h2>
+      <audio id="audio" controls></audio>
+      <ul id="playlist" class="playlist"></ul>
+    </section>
+
+    <section class="profile card">
+      <h2>Профиль</h2>
+      <div class="profile-top">
+        <div class="avatar">nickname</div>
+        <div>
+          <p class="nickname">wtf7z</p>
+          <p class="status" id="authStatus">Не авторизован</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="login-form">
+        <input id="loginInput" type="text" placeholder="Логин" required />
+        <input id="passwordInput" type="password" placeholder="Пароль" required />
+        <button type="submit">Войти</button>
+        <p class="hint">Демо доступ: <code>wtf7z / 123456</code></p>
+      </form>
+
+      <button id="logoutBtn" class="logout-btn hidden">Выйти</button>
+
+      <div class="comments">
+        <h3>Комментарии под профилем</h3>
+        <form id="commentForm" class="comment-form hidden">
+          <textarea id="commentInput" placeholder="Напиши комментарий..." required></textarea>
+          <button type="submit">Оставить комментарий</button>
+        </form>
+        <ul id="commentList" class="comment-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <aside id="notifyPanel" class="notify-panel hidden" aria-live="polite">
+    <h3>Уведомления</h3>
+    <ul id="notifyList"></ul>
+  </aside>
+
+  <script src="script.js"></script>
+</body>
+</html>
