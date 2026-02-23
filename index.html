@@ -43,7 +43,7 @@
     </section>
 
     <section class="card player reveal">
-      <h2>Media player</h2>
+      <h2>Медиа плеер</h2>
       <audio id="audio" controls preload="none"></audio>
 
       <form id="musicSearchForm" class="search-form">
@@ -110,7 +110,9 @@
   </aside>
 
   <script>
-    window.WTF7Z_API_BASE = "http://localhost:8787";
+    window.WTF7Z_API_BASE = ["localhost", "127.0.0.1"].includes(window.location.hostname)
+      ? "http://localhost:8787"
+      : "";
     // Example for production:
     // window.WTF7Z_API_BASE = "https://your-backend-domain.com";
   </script>

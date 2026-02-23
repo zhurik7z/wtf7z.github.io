@@ -8,24 +8,11 @@ const defaultApiBase = ["localhost", "127.0.0.1"].includes(window.location.hostn
   ? "http://localhost:8787"
   : "";
 const API_BASE = (window.WTF7Z_API_BASE || defaultApiBase).replace(/\/$/, "");
-
-const baseTracks = [
-  {
-    title: "Dream Pulse",
-    artist: "SoundHelix",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-  },
-  {
-    title: "Night Drive",
-    artist: "SoundHelix",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-  },
-  {
-    title: "Skyline",
-    artist: "SoundHelix",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-  },
+const SOUND_CLOUD_PUBLIC_CLIENT_IDS = [
+  "XiD3LeYoTKN7rIqQi5aDtnwz9t9zcDYw",
 ];
+
+const baseTracks = [];
 
 const notificationItems = [
   "Добро пожаловать на сайт wtf7z",
@@ -172,27 +159,39 @@ function addTrack(track) {
 }
 
 async function findMusic(query) {
-  const endpoint = API_BASE
-    ? `${API_BASE}/api/soundcloud/search?q=${encodeURIComponent(query)}`
-    : `/api/soundcloud/search?q=${encodeURIComponent(query)}`;
+  if (API_BASE) {
+    const endpoint = `${API_BASE}/api/soundcloud/search?q=${encodeURIComponent(query)}`;
+    try {
+      const response = await fetch(endpoint);
+      if (response.ok) {
+        const data = await response.json();
+        return Array.isArray(data.tracks) ? data.tracks : [];
+      }
+    } catch {
+      // fallback to direct SoundCloud request
+    }
+  }
 
-  const response = await fetch(endpoint);
-  if (!response.ok) throw new Error("Ошибка загрузки");
-  const data = await response.json();
-  return Array.isArray(data.tracks) ? data.tracks : [];
+  return searchTracksDirect(query);
 }
 
 async function prepareTrack(track) {
   if (track.url) return track;
-  if (!track.streamProxyUrl) throw new Error("Нет stream URL");
+  if (track.streamProxyUrl && API_BASE) {
+    const endpoint = `${API_BASE}${track.streamProxyUrl}`;
+    const response = await fetch(endpoint);
+    if (!response.ok) throw new Error("Не удалось получить поток");
+    const payload = await response.json();
+    if (!payload?.url) throw new Error("Поток недоступен");
+    return {
+      title: track.title,
+      artist: track.artist,
+      url: payload.url,
+    };
+  }
 
-  const endpoint = API_BASE
-    ? `${API_BASE}${track.streamProxyUrl}`
-    : track.streamProxyUrl;
-
-  const response = await fetch(endpoint);
-  if (!response.ok) throw new Error("Не удалось получить поток");
-  const payload = await response.json();
+  if (!track.streamApiUrl) throw new Error("Нет stream URL");
+  const payload = await resolveStreamDirect(track.streamApiUrl, track.trackAuthorization || "");
   if (!payload?.url) throw new Error("Поток недоступен");
 
   return {
@@ -200,6 +199,62 @@ async function prepareTrack(track) {
     artist: track.artist,
     url: payload.url,
   };
+}
+
+async function searchTracksDirect(query) {
+  const payload = await callWithPublicClientId(async (clientId) => {
+    const endpoint = new URL("https://api-v2.soundcloud.com/search/tracks");
+    endpoint.searchParams.set("q", query);
+    endpoint.searchParams.set("limit", "12");
+    endpoint.searchParams.set("linked_partitioning", "1");
+    endpoint.searchParams.set("client_id", clientId);
+    const response = await fetch(endpoint.toString());
+    if (!response.ok) throw new Error("SEARCH_FAILED");
+    return response.json();
+  });
+
+  const collection = Array.isArray(payload?.collection) ? payload.collection : [];
+  return collection
+    .map((track) => {
+      const transcodings = track?.media?.transcodings || [];
+      const progressive = transcodings.find((item) => item?.format?.protocol === "progressive");
+      if (!progressive?.url) return null;
+      return {
+        id: track.id,
+        title: track.title || "Unknown",
+        artist: track?.user?.username || "Unknown",
+        artwork: track.artwork_url || null,
+        permalink: track.permalink_url || null,
+        streamApiUrl: progressive.url,
+        trackAuthorization: track.track_authorization || "",
+      };
+    })
+    .filter(Boolean);
+}
+
+async function resolveStreamDirect(streamApiUrl, trackAuthorization) {
+  return callWithPublicClientId(async (clientId) => {
+    const endpoint = new URL(streamApiUrl);
+    endpoint.searchParams.set("client_id", clientId);
+    if (trackAuthorization) {
+      endpoint.searchParams.set("track_authorization", trackAuthorization);
+    }
+    const response = await fetch(endpoint.toString());
+    if (!response.ok) throw new Error("STREAM_FAILED");
+    return response.json();
+  });
+}
+
+async function callWithPublicClientId(callback) {
+  let lastError = null;
+  for (const clientId of SOUND_CLOUD_PUBLIC_CLIENT_IDS) {
+    try {
+      return await callback(clientId);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("NO_PUBLIC_CLIENT_ID");
 }
 
 function renderSearchResults(items) {
