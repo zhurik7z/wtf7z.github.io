@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>wtf7z | Мой сайт</title>
-  <meta name="description" content="Личный сайт wtf7z: проекты, музыка, профиль и комментарии." />
+  <meta name="description" content="мой личный сайт - ну ладно заходи" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -32,11 +32,11 @@
       <p class="lead">Прочитай информацию:</p>
       <div class="project-list">
         <a class="project" href="https://t.me/whatsappnodebot" target="_blank" rel="noopener noreferrer">
-          <span class="project-title">Whatsapp bot</span>
+          <span class="project-title">Whatsapp bot(закрыт)</span>
           <span class="project-link">https://t.me/whatsappnodebot</span>
         </a>
         <a class="project" href="https://t.me/nursultansn0sbot" target="_blank" rel="noopener noreferrer">
-          <span class="project-title">Сносер аккаунтов для tiktok (публичный)</span>
+          <span class="project-title">Сносер аккаунтов для tiktok (с помощью которого мы сносили очень много аккаунтов теперь бесплатный, пользуйтесь xd)</span>
           <span class="project-link">https://t.me/nursultansn0sbot</span>
         </a>
       </div>
@@ -81,7 +81,7 @@
       <form id="registerForm" class="auth-form hidden">
         <input id="registerName" type="text" placeholder="Новый логин" required />
         <input id="registerPass" type="password" placeholder="Новый пароль" required />
-        <button type="submit">Создать аккаунт</button>
+        <button type="submit">Создать аккаунт (beta)</button>
       </form>
 
       <button id="logoutBtn" type="button" class="logout-btn hidden">Выйти</button>
@@ -90,7 +90,7 @@
         <h3>Комментарии под профилем</h3>
         <form id="commentForm" class="comment-form hidden">
           <textarea id="commentInput" placeholder="Напиши комментарий" required></textarea>
-          <button type="submit">Оставить комментарий</button>
+          <button type="submit">Оставить комментарий (beta)</button>
         </form>
         <ul id="commentList" class="comment-list"></ul>
       </div>
@@ -100,7 +100,7 @@
       <h2>Онлайн</h2>
       <p id="onlineCount" class="muted">Сейчас онлайн: 0</p>
       <ul id="onlineList" class="online-list"></ul>
-      <p class="tiny">Показывает онлайн вкладки в этом браузере/устройстве.</p>
+      <p class="tiny">Показывает онлайн сайта.(?)</p>
     </section>
   </main>
 
@@ -113,8 +113,6 @@
     window.WTF7Z_API_BASE = ["localhost", "127.0.0.1"].includes(window.location.hostname)
       ? "http://localhost:8787"
       : "";
-    // Example for production:
-    // window.WTF7Z_API_BASE = "https://your-backend-domain.com";
   </script>
   <script src="script.js"></script>
 </body>
