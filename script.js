@@ -65,10 +65,24 @@ const channel = typeof BroadcastChannel !== "undefined"
 let playlist = [...baseTracks];
 let currentTrack = 0;
 let currentUser = loadSession();
+const memoryStore = new Map();
+
+function canUseLocalStorage() {
+  try {
+    const key = "__wtf7z_probe__";
+    localStorage.setItem(key, "1");
+    localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const hasLocalStorage = canUseLocalStorage();
 
 function loadJSON(key, fallback) {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = hasLocalStorage ? localStorage.getItem(key) : memoryStore.get(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch {
     return fallback;
@@ -76,7 +90,15 @@ function loadJSON(key, fallback) {
 }
 
 function saveJSON(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  const raw = JSON.stringify(value);
+  memoryStore.set(key, raw);
+  if (!hasLocalStorage) return false;
+  try {
+    localStorage.setItem(key, raw);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function loadUsers() {
@@ -96,7 +118,10 @@ function saveSession(user) {
   if (user) {
     saveJSON(storageKeys.session, user);
   } else {
-    localStorage.removeItem(storageKeys.session);
+    memoryStore.delete(storageKeys.session);
+    if (hasLocalStorage) {
+      localStorage.removeItem(storageKeys.session);
+    }
   }
 }
 
@@ -329,7 +354,7 @@ function switchAuth(mode) {
 }
 
 function setPresence(name) {
-  const map = loadJSON(storageKeys.presence, {});
+  const map = loadPresenceMap();
   map[tabId] = { name, seenAt: Date.now() };
   saveJSON(storageKeys.presence, map);
   if (channel) channel.postMessage("update");
@@ -339,13 +364,15 @@ function cleanupPresence(map) {
   const now = Date.now();
   const cleaned = {};
   Object.entries(map).forEach(([id, item]) => {
+    if (!item || typeof item !== "object") return;
+    if (typeof item.name !== "string" || typeof item.seenAt !== "number") return;
     if (now - item.seenAt < 35000) cleaned[id] = item;
   });
   return cleaned;
 }
 
 function renderOnline() {
-  const cleaned = cleanupPresence(loadJSON(storageKeys.presence, {}));
+  const cleaned = cleanupPresence(loadPresenceMap());
   saveJSON(storageKeys.presence, cleaned);
 
   const grouped = {};
@@ -391,11 +418,19 @@ function renderAuth() {
 }
 
 function loadComments() {
-  return loadJSON(storageKeys.comments, []);
+  const comments = loadJSON(storageKeys.comments, []);
+  return Array.isArray(comments) ? comments : [];
 }
 
 function saveComments(comments) {
-  saveJSON(storageKeys.comments, comments.slice(0, 60));
+  if (!Array.isArray(comments)) return false;
+  return saveJSON(storageKeys.comments, comments.slice(0, 60));
+}
+
+function loadPresenceMap() {
+  const map = loadJSON(storageKeys.presence, {});
+  if (!map || typeof map !== "object" || Array.isArray(map)) return {};
+  return map;
 }
 
 function renderComments() {
@@ -525,7 +560,10 @@ commentForm.addEventListener("submit", (event) => {
     text,
     time: Date.now(),
   });
-  saveComments(comments);
+  const saved = saveComments(comments);
+  if (!saved) {
+    alert("Не удалось сохранить комментарий (ошибка localStorage).");
+  }
   commentInput.value = "";
   renderComments();
 });
@@ -552,7 +590,7 @@ if (channel) {
 }
 
 window.addEventListener("beforeunload", () => {
-  const map = loadJSON(storageKeys.presence, {});
+  const map = loadPresenceMap();
   delete map[tabId];
   saveJSON(storageKeys.presence, map);
 });
