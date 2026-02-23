@@ -11,6 +11,10 @@ const API_BASE = (window.WTF7Z_API_BASE || defaultApiBase).replace(/\/$/, "");
 const SOUND_CLOUD_PUBLIC_CLIENT_IDS = [
   "XiD3LeYoTKN7rIqQi5aDtnwz9t9zcDYw",
 ];
+const CORS_PROXY_PREFIXES = [
+  "https://api.allorigins.win/raw?url=",
+  "https://cors.isomorphic-git.org/",
+];
 
 const baseTracks = [];
 
@@ -208,7 +212,7 @@ async function searchTracksDirect(query) {
     endpoint.searchParams.set("limit", "12");
     endpoint.searchParams.set("linked_partitioning", "1");
     endpoint.searchParams.set("client_id", clientId);
-    const response = await fetch(endpoint.toString());
+    const response = await fetchWithCorsFallback(endpoint.toString());
     if (!response.ok) throw new Error("SEARCH_FAILED");
     return response.json();
   });
@@ -239,7 +243,7 @@ async function resolveStreamDirect(streamApiUrl, trackAuthorization) {
     if (trackAuthorization) {
       endpoint.searchParams.set("track_authorization", trackAuthorization);
     }
-    const response = await fetch(endpoint.toString());
+    const response = await fetchWithCorsFallback(endpoint.toString());
     if (!response.ok) throw new Error("STREAM_FAILED");
     return response.json();
   });
@@ -255,6 +259,28 @@ async function callWithPublicClientId(callback) {
     }
   }
   throw lastError || new Error("NO_PUBLIC_CLIENT_ID");
+}
+
+async function fetchWithCorsFallback(url) {
+  try {
+    return await fetch(url);
+  } catch {
+    // fallback to public proxies for static hosting (GitHub Pages)
+  }
+
+  for (const prefix of CORS_PROXY_PREFIXES) {
+    try {
+      const proxiedUrl = prefix.includes("allorigins")
+        ? `${prefix}${encodeURIComponent(url)}`
+        : `${prefix}${url}`;
+      const response = await fetch(proxiedUrl);
+      if (response.ok) return response;
+    } catch {
+      // try next proxy
+    }
+  }
+
+  throw new Error("NETWORK_OR_CORS_BLOCKED");
 }
 
 function renderSearchResults(items) {
