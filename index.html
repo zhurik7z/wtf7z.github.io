@@ -1,0 +1,119 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>wtf7z | Мой сайт</title>
+  <meta name="description" content="Личный сайт wtf7z: проекты, музыка, профиль и комментарии." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="mesh mesh-a"></div>
+  <div class="mesh mesh-b"></div>
+
+  <header class="container topbar">
+    <div class="brand-wrap">
+      <p class="brand">wtf7z</p>
+      <p class="brand-sub">personal hub</p>
+    </div>
+    <button id="notifyBtn" class="notify-btn" aria-label="Уведомления">
+      <span id="notifyDot" class="notify-dot"></span>
+      Уведомления
+    </button>
+  </header>
+
+  <main class="container grid">
+    <section class="card hero reveal">
+      <p class="pill">Добро пожаловать</p>
+      <h1>Привет, ты попал на мой сайт</h1>
+      <p class="lead">Прочитай информацию:</p>
+      <div class="project-list">
+        <a class="project" href="https://t.me/whatsappnodebot" target="_blank" rel="noopener noreferrer">
+          <span class="project-title">Whatsapp bot</span>
+          <span class="project-link">https://t.me/whatsappnodebot</span>
+        </a>
+        <a class="project" href="https://t.me/nursultansn0sbot" target="_blank" rel="noopener noreferrer">
+          <span class="project-title">Сносер аккаунтов для tiktok (публичный)</span>
+          <span class="project-link">https://t.me/nursultansn0sbot</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="card player reveal">
+      <h2>Media player</h2>
+      <audio id="audio" controls preload="none"></audio>
+
+      <form id="musicSearchForm" class="search-form">
+        <input id="musicQuery" type="text" placeholder="Найти песню по запросу" required />
+        <button type="submit">Найти</button>
+      </form>
+      <p id="searchStatus" class="muted">Ищи треки и добавляй в плеер.</p>
+      <ul id="searchResults" class="search-results"></ul>
+
+      <h3>Плейлист</h3>
+      <ul id="playlist" class="playlist"></ul>
+    </section>
+
+    <section class="card profile reveal">
+      <h2>Профиль</h2>
+      <div class="profile-head">
+        <div class="avatar">nickname</div>
+        <div>
+          <p class="nickname">wtf7z</p>
+          <p id="authStatus" class="muted">Не авторизован</p>
+        </div>
+      </div>
+
+      <div class="auth-switch">
+        <button id="showLogin" type="button" class="active">Логин</button>
+        <button id="showRegister" type="button">Регистрация</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <input id="loginName" type="text" placeholder="Логин" required />
+        <input id="loginPass" type="password" placeholder="Пароль" required />
+        <button type="submit">Войти</button>
+      </form>
+
+      <form id="registerForm" class="auth-form hidden">
+        <input id="registerName" type="text" placeholder="Новый логин" required />
+        <input id="registerPass" type="password" placeholder="Новый пароль" required />
+        <button type="submit">Создать аккаунт</button>
+      </form>
+
+      <button id="logoutBtn" type="button" class="logout-btn hidden">Выйти</button>
+
+      <div class="comments">
+        <h3>Комментарии под профилем</h3>
+        <form id="commentForm" class="comment-form hidden">
+          <textarea id="commentInput" placeholder="Напиши комментарий" required></textarea>
+          <button type="submit">Оставить комментарий</button>
+        </form>
+        <ul id="commentList" class="comment-list"></ul>
+      </div>
+    </section>
+
+    <section class="card online reveal">
+      <h2>Онлайн</h2>
+      <p id="onlineCount" class="muted">Сейчас онлайн: 0</p>
+      <ul id="onlineList" class="online-list"></ul>
+      <p class="tiny">Показывает онлайн вкладки в этом браузере/устройстве.</p>
+    </section>
+  </main>
+
+  <aside id="notifyPanel" class="notify-panel hidden" aria-live="polite">
+    <h3>Уведомления</h3>
+    <ul id="notifyList"></ul>
+  </aside>
+
+  <script>
+    window.WTF7Z_API_BASE = "http://localhost:8787";
+    // Example for production:
+    // window.WTF7Z_API_BASE = "https://your-backend-domain.com";
+  </script>
+  <script src="script.js"></script>
+</body>
+</html>
