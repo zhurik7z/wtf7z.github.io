@@ -19,9 +19,9 @@ const CORS_PROXY_PREFIXES = [
 const baseTracks = [];
 
 const notificationItems = [
-  "Добро пожаловать на сайт wtf7z",
+  "Добро пожаловать на сайт NoName",
   "Можно зарегистрироваться и оставлять комментарии",
-  "Используй поиск трека, чтобы добавить музыку в плеер",
+  "Тут так же есть поиск треков",
 ];
 
 const audio = document.getElementById("audio");
@@ -446,14 +446,14 @@ musicSearchForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  searchStatus.textContent = "Ищу треки в SoundCloud...";
+  searchStatus.textContent = "Ищу треки в SoundCloud (будьте готовы к долгому поиску)";
 
   try {
     const found = await findMusic(q);
     renderSearchResults(found);
     searchStatus.textContent = `Результатов: ${found.length}`;
   } catch {
-    searchStatus.textContent = "Не удалось получить треки из SoundCloud API.";
+    searchStatus.textContent = "Не удалось получить треки из SoundCloud API, возможно отлетели прокси( попробуй еще раз!";
   }
 });
 
