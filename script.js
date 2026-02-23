@@ -80,9 +80,39 @@ function canUseLocalStorage() {
 
 const hasLocalStorage = canUseLocalStorage();
 
+function getCookieValue(name) {
+  try {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCookieValue(name, value, days = 30) {
+  try {
+    const maxAge = Math.max(1, Math.floor(days * 24 * 60 * 60));
+    document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; samesite=lax`;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeCookieValue(name) {
+  try {
+    document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
+  } catch {
+    // ignore
+  }
+}
+
 function loadJSON(key, fallback) {
   try {
-    const raw = hasLocalStorage ? localStorage.getItem(key) : memoryStore.get(key);
+    const raw = hasLocalStorage
+      ? localStorage.getItem(key) || getCookieValue(key)
+      : memoryStore.get(key) || getCookieValue(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch {
     return fallback;
@@ -92,13 +122,19 @@ function loadJSON(key, fallback) {
 function saveJSON(key, value) {
   const raw = JSON.stringify(value);
   memoryStore.set(key, raw);
-  if (!hasLocalStorage) return false;
-  try {
-    localStorage.setItem(key, raw);
-    return true;
-  } catch {
-    return false;
+  let saved = false;
+  if (hasLocalStorage) {
+    try {
+      localStorage.setItem(key, raw);
+      saved = true;
+    } catch {
+      saved = false;
+    }
   }
+  if (setCookieValue(key, raw)) {
+    saved = true;
+  }
+  return saved;
 }
 
 function loadUsers() {
@@ -122,6 +158,7 @@ function saveSession(user) {
     if (hasLocalStorage) {
       localStorage.removeItem(storageKeys.session);
     }
+    removeCookieValue(storageKeys.session);
   }
 }
 
