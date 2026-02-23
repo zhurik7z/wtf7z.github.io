@@ -390,11 +390,19 @@ function switchAuth(mode) {
   showRegister.classList.toggle("active", !showLoginForm);
 }
 
+const remoteSyncEnabled = Boolean(API_BASE);
+
 function setPresence(name) {
   const map = loadPresenceMap();
   map[tabId] = { name, seenAt: Date.now() };
   saveJSON(storageKeys.presence, map);
   if (channel) channel.postMessage("update");
+
+  if (remoteSyncEnabled) {
+    sendPresenceRemote(name).catch(() => {
+      // ignore, local fallback still works
+    });
+  }
 }
 
 function cleanupPresence(map) {
@@ -408,7 +416,23 @@ function cleanupPresence(map) {
   return cleaned;
 }
 
-function renderOnline() {
+async function renderOnline() {
+  if (remoteSyncEnabled) {
+    try {
+      const response = await fetch(`${API_BASE}/api/presence`);
+      if (response.ok) {
+        const payload = await response.json();
+        renderOnlineEntries(
+          Number(payload.onlineCount) || 0,
+          Array.isArray(payload.users) ? payload.users : [],
+        );
+        return;
+      }
+    } catch {
+      // fallback to local presence
+    }
+  }
+
   const cleaned = cleanupPresence(loadPresenceMap());
   saveJSON(storageKeys.presence, cleaned);
 
@@ -417,23 +441,10 @@ function renderOnline() {
     grouped[user.name] = (grouped[user.name] || 0) + 1;
   });
 
-  const entries = Object.entries(grouped).sort((a, b) => b[1] - a[1]);
-  const totalTabs = Object.keys(cleaned).length;
-  onlineCount.textContent = `Сейчас онлайн: ${totalTabs}`;
-  onlineList.innerHTML = "";
-
-  if (!entries.length) {
-    const li = document.createElement("li");
-    li.textContent = "Никого нет онлайн";
-    onlineList.appendChild(li);
-    return;
-  }
-
-  entries.forEach(([name, count]) => {
-    const li = document.createElement("li");
-    li.textContent = `${name} (${count})`;
-    onlineList.appendChild(li);
-  });
+  const entries = Object.entries(grouped)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+  renderOnlineEntries(Object.keys(cleaned).length, entries);
 }
 
 function renderAuth() {
@@ -470,8 +481,27 @@ function loadPresenceMap() {
   return map;
 }
 
-function renderComments() {
+async function renderComments() {
+  if (remoteSyncEnabled) {
+    try {
+      const response = await fetch(`${API_BASE}/api/comments`);
+      if (response.ok) {
+        const payload = await response.json();
+        const comments = Array.isArray(payload.comments) ? payload.comments : [];
+        saveComments(comments);
+        renderCommentList(comments);
+        return;
+      }
+    } catch {
+      // fallback to local comments
+    }
+  }
+
   const comments = loadComments();
+  renderCommentList(comments);
+}
+
+function renderCommentList(comments) {
   commentList.innerHTML = "";
 
   if (!comments.length) {
@@ -493,6 +523,35 @@ function renderComments() {
     li.appendChild(author);
     li.appendChild(text);
     commentList.appendChild(li);
+  });
+}
+
+function renderOnlineEntries(total, entries) {
+  onlineCount.textContent = `Сейчас онлайн: ${total}`;
+  onlineList.innerHTML = "";
+
+  if (!entries.length) {
+    const li = document.createElement("li");
+    li.textContent = "Никого нет онлайн";
+    onlineList.appendChild(li);
+    return;
+  }
+
+  entries.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = `${item.name} (${item.count})`;
+    onlineList.appendChild(li);
+  });
+}
+
+async function sendPresenceRemote(name) {
+  await fetch(`${API_BASE}/api/presence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tabId,
+      name,
+    }),
   });
 }
 
@@ -580,7 +639,7 @@ logoutBtn.addEventListener("click", () => {
   pushNotification("Вы вышли из аккаунта");
 });
 
-commentForm.addEventListener("submit", (event) => {
+commentForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   if (!currentUser?.username) {
@@ -591,6 +650,32 @@ commentForm.addEventListener("submit", (event) => {
   const text = commentInput.value.trim();
   if (!text) return;
 
+  if (remoteSyncEnabled) {
+    try {
+      const response = await fetch(`${API_BASE}/api/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          author: currentUser.username,
+          text,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("REMOTE_COMMENT_FAILED");
+      }
+
+      const payload = await response.json();
+      const comments = Array.isArray(payload.comments) ? payload.comments : [];
+      saveComments(comments);
+      commentInput.value = "";
+      renderCommentList(comments);
+      return;
+    } catch {
+      // fallback to local comment save
+    }
+  }
+
   const comments = loadComments();
   comments.unshift({
     author: currentUser.username,
@@ -599,14 +684,15 @@ commentForm.addEventListener("submit", (event) => {
   });
   const saved = saveComments(comments);
   if (!saved) {
-    alert("Не удалось сохранить комментарий (ошибка localStorage).");
+    alert("Не удалось сохранить комментарий.");
   }
+
   commentInput.value = "";
-  renderComments();
+  renderCommentList(comments);
 });
 
 window.addEventListener("storage", (event) => {
-  if (event.key === storageKeys.comments) {
+  if (!remoteSyncEnabled && event.key === storageKeys.comments) {
     renderComments();
     return;
   }
@@ -630,6 +716,15 @@ window.addEventListener("beforeunload", () => {
   const map = loadPresenceMap();
   delete map[tabId];
   saveJSON(storageKeys.presence, map);
+
+  if (remoteSyncEnabled) {
+    fetch(`${API_BASE}/api/presence/${encodeURIComponent(tabId)}`, {
+      method: "DELETE",
+      keepalive: true,
+    }).catch(() => {
+      // ignore
+    });
+  }
 });
 
 setInterval(() => {

@@ -1,6 +1,9 @@
-ï»¿import express from "express";
+import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { promises as fs } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -8,6 +11,10 @@ const app = express();
 const port = Number(process.env.PORT || 8787);
 const clientId = process.env.SOUNDCLOUD_CLIENT_ID;
 const clientSecret = process.env.SOUNDCLOUD_CLIENT_SECRET;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dataDir = path.join(__dirname, "data");
+const commentsFile = path.join(dataDir, "comments.json");
 
 const tokenCache = {
   accessToken: null,
@@ -19,7 +26,12 @@ const publicClientIdCache = {
   expiresAt: 0,
 };
 
+const presenceMap = new Map();
+const PRESENCE_TTL_MS = 35_000;
+let commentsWriteQueue = Promise.resolve();
+
 app.use(cors());
+app.use(express.json({ limit: "32kb" }));
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -27,6 +39,74 @@ app.get("/api/health", (_req, res) => {
     service: "wtf7z-soundcloud-proxy",
     oauthConfigured: Boolean(clientId && clientSecret),
   });
+});
+
+app.get("/api/comments", async (_req, res) => {
+  try {
+    const comments = await readComments();
+    res.json({ comments });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Unexpected error" });
+  }
+});
+
+app.post("/api/comments", async (req, res) => {
+  const author = String(req.body?.author || "").trim();
+  const text = String(req.body?.text || "").trim();
+
+  if (!author || !text) {
+    res.status(400).json({ error: "author and text are required" });
+    return;
+  }
+
+  if (author.length > 60 || text.length > 1000) {
+    res.status(400).json({ error: "author/text is too long" });
+    return;
+  }
+
+  try {
+    const comments = await readComments();
+    comments.unshift({
+      author,
+      text,
+      time: Date.now(),
+    });
+
+    const sliced = comments.slice(0, 100);
+    await writeComments(sliced);
+    res.status(201).json({ ok: true, comments: sliced });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Unexpected error" });
+  }
+});
+
+app.get("/api/presence", (_req, res) => {
+  res.json(getPresenceSnapshot());
+});
+
+app.post("/api/presence", (req, res) => {
+  const tabId = String(req.body?.tabId || "").trim();
+  const name = String(req.body?.name || "").trim() || "Ãîñòü";
+
+  if (!tabId) {
+    res.status(400).json({ error: "tabId is required" });
+    return;
+  }
+
+  presenceMap.set(tabId, {
+    name: name.slice(0, 80),
+    seenAt: Date.now(),
+  });
+
+  res.json({ ok: true, ...getPresenceSnapshot() });
+});
+
+app.delete("/api/presence/:tabId", (req, res) => {
+  const tabId = String(req.params.tabId || "").trim();
+  if (tabId) {
+    presenceMap.delete(tabId);
+  }
+  res.json({ ok: true, ...getPresenceSnapshot() });
 });
 
 async function getAccessToken() {
@@ -108,6 +188,7 @@ async function getPublicClientId() {
   if (!htmlResponse.ok) {
     return null;
   }
+
   const html = await htmlResponse.text();
   const assetMatches = html.match(/https:\/\/a-v2\.sndcdn\.com\/assets\/[^"' ]+\.js/g) || [];
   const assets = [...new Set(assetMatches)].slice(0, 20);
@@ -208,6 +289,7 @@ app.get("/api/soundcloud/stream", async (req, res) => {
 app.listen(port, () => {
   console.log(`SoundCloud proxy is running on http://localhost:${port}`);
 });
+
 async function readErrorBody(response) {
   try {
     const text = await response.text();
@@ -218,4 +300,63 @@ async function readErrorBody(response) {
     // ignore
   }
   return `HTTP ${response.status}`;
+}
+
+function getPresenceSnapshot() {
+  const now = Date.now();
+  for (const [id, item] of presenceMap.entries()) {
+    if (!item || typeof item.seenAt !== "number" || now - item.seenAt > PRESENCE_TTL_MS) {
+      presenceMap.delete(id);
+    }
+  }
+
+  const grouped = {};
+  for (const item of presenceMap.values()) {
+    const key = String(item.name || "Ãîñòü");
+    grouped[key] = (grouped[key] || 0) + 1;
+  }
+
+  const users = Object.entries(grouped)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  return {
+    onlineCount: presenceMap.size,
+    users,
+  };
+}
+
+async function ensureCommentsStorage() {
+  await fs.mkdir(dataDir, { recursive: true });
+  try {
+    await fs.access(commentsFile);
+  } catch {
+    await fs.writeFile(commentsFile, "[]", "utf8");
+  }
+}
+
+async function readComments() {
+  await ensureCommentsStorage();
+  try {
+    const raw = await fs.readFile(commentsFile, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        author: String(item.author || "Ãîñòü").slice(0, 60),
+        text: String(item.text || "").slice(0, 1000),
+        time: Number(item.time) || Date.now(),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function writeComments(comments) {
+  commentsWriteQueue = commentsWriteQueue.then(async () => {
+    await ensureCommentsStorage();
+    await fs.writeFile(commentsFile, JSON.stringify(comments, null, 2), "utf8");
+  });
+  return commentsWriteQueue;
 }
